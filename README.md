@@ -100,7 +100,7 @@
   - A signal which makes the processor stop what it is doing, in order to handle the signal
   - Three way to trigger an interrupt 
     - An exception (e.g., divide by zero, segmentation fault, page fault)
-    - Hadware (e.g., keyboard, timer ticks, disk controller finish some operation)
+    - Hardware (e.g., keyboard, timer ticks, disk controller finish some operation)
     - Sofware, through the INT instruction 
       - INT [0 to 255]
   - BIOS has interrupt handler for us, so that we can use this functionality 

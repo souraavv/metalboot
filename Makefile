@@ -7,9 +7,12 @@ BUILD_DIR=build
 BOOTLOADER_SRC := $(SRC_DIR)/main.asm
 BOOTLOADER_BIN := $(BUILD_DIR)/bootloader.bin
 FLOPPY_IMAGE  := $(BUILD_DIR)/boot.img
-FLOPPY_SIZE := 1440k
+FLOPPY_SIZE := 1440k # 2880 sectors in real floopy
 
 all: $(FLOPPY_IMAGE)
+
+run: 
+	qemu-system-i386 -fda $(FLOPPY_IMAGE)
 
 $(BOOTLOADER_BIN): $(BOOTLOADER_SRC)
 	$(ASM) -f bin $< -o $@

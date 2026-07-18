@@ -16,18 +16,76 @@ puts:
     ; save the register we will modify 
     push si            ; SI is set to the start address, we will read starting this
     push ax            ; save initial value of ax which is 0
+    push bx 
+    push cx
 
 .loop:
     lodsb              ; load next character in al and increment si by # of byte loaded
     and al, al         ; verfiy if next character is null
     jz .done           ; previous instruction return 0 then jump 
     
-    mov ah, 0x09       ; Bios will use this to know what, kind of function identifier
-    mov bh, 0          ; print_char(AL, page=bh), move_cursor
-    mov bl, 0xA        ; light green
+    push ax            ; save the character
+
     mov cx, 1
+    call get_color
+
+    pop dx             ; restore saved AX into DX
+    mov al, dl         ; restore only the character
+
+    call setup_in10h_to_write_character
+
     int 0x10           ; calls BIOS
 
+    call set_position_to_next_row
+    jmp .loop          ; again till there are words
+
+.done:
+    pop ax             ; restore the value of ax 
+    pop si             ; restore the value of si 
+    ret
+
+; 
+; get color
+;
+get_color:
+    push si
+    push ax
+
+    xor ax, ax
+    mov al, [color_index]
+
+    mov si, colors
+    add si, ax
+
+    mov bl, [si]
+
+    inc byte [color_index]
+    cmp byte [color_index], 3
+    jb .done
+
+    mov byte [color_index], 0
+
+.done:
+    pop ax
+    pop si
+    ret
+
+; 
+; set the INT 10h to write character and attribute to 
+; at the cursor position 
+;    input ax, bx 
+; 
+
+setup_in10h_to_write_character: 
+    mov ah, 0x09
+    mov bh, 0
+    ret
+
+;
+;  set the cursor position to the next row
+;     input 
+;
+set_position_to_next_row:  
     ; Gets the cursor position
     mov ah, 0x03
     mov bh, 0
@@ -38,12 +96,6 @@ puts:
     mov ah, 0x02
     mov bh, 0
     int 0x10 
-
-    jmp .loop          ; again till there are words
-
-.done:
-    pop ax             ; restore the value of ax 
-    pop si             ; restore the value of si 
     ret
 
 main:
@@ -66,6 +118,12 @@ main:
 
 msg_hello: 
     db 'Hello world!', ENDL, 0
+
+colors:
+    db 0x0A, 0x0B, 0x0C, 0x0D
+
+color_index:
+    db 0
 
 times 510 - ($ - $$) db 0
 dw 0AA55h

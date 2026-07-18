@@ -1,5 +1,9 @@
 - [Assembly](#assembly)
   - [How a computer startup ?](#how-a-computer-startup-)
+  - [How BIOS find the OS ?](#how-bios-find-the-os-)
+  - [Directive vs Instruction](#directive-vs-instruction)
+  - [Memory segmentation](#memory-segmentation)
+  - [How to reference a memory location in assembly ?](#how-to-reference-a-memory-location-in-assembly-)
 
 
 ## Assembly 
@@ -10,20 +14,22 @@
   - initialize the hardware
   - runs some test (POST)
 - BIOS search for an operating system to load into the memory
-- How BIOS find the OS ?
-  - Legacy booting
-    - BIOS loads first sector of each bootable device into the memory at the location `0x7C00`
-    - Check for a `0xAA55` signature
-    - If found, then jumps to the first insturction in the loaded block
-  - EFI 
-    - BIOS looks into specific EFI partitions
-    - OS must be compiled using as an EFI programs
-- Directive vs Instruction
-  - Directive
-    - Gives a clue to the assembler that will affect how the program gets compiled. 
-    - A directive is not translated to a machine code
-  - Instruction
-    - Translates to a machine code instruction 
+
+### How BIOS find the OS ?
+- Legacy booting
+  - BIOS loads first sector of each bootable device into the memory at the location `0x7C00`
+  - Check for a `0xAA55` signature
+  - If found, then jumps to the first insturction in the loaded block
+- EFI 
+  - BIOS looks into specific EFI partitions
+  - OS must be compiled using as an EFI programs
+
+### Directive vs Instruction
+- Directive
+  - Gives a clue to the assembler that will affect how the program gets compiled. 
+  - A directive is not translated to a machine code
+- Instruction
+  - Translates to a machine code instruction 
 - `ORG` origin directive
   - Tells assembler where we expect our code to be loaded
   - It is not a CPU instruction - it only affect how assembler calculate addresses and labels. So it doesn't tell CPU where to execute the code
@@ -62,7 +68,8 @@
     - Current = `$`
     - Current - Start
   - So we have to fill `0` in `510 - ($ - $$)` bytes
-- Memory segmentation
+
+### Memory segmentation
   - Segment:offset
   - Each segment can contains 64KB of memory
   - Segment overlap at 16 bytes
@@ -75,7 +82,9 @@
   - **DS**: Data segment
   - **SS**: stack segment
   - **ES**, **FS**, **GS** - extra data segments
-- How to reference a memory location in assembly ?
+
+### How to reference a memory location in assembly ?
+- Memory location 
   - `segment: [base + index * scale + displacement]`
   - segment: CS, DS, ES, FS, GS, SS (DS if not specified)
   - base: 16 bit BP/BX (limitation), 32/64 bits any general purpose register

@@ -4,6 +4,8 @@
   - [Directive vs Instruction](#directive-vs-instruction)
   - [Memory segmentation](#memory-segmentation)
   - [How to reference a memory location in assembly ?](#how-to-reference-a-memory-location-in-assembly-)
+- [Bootloader](#bootloader)
+  - [Floppy disk](#floppy-disk)
 
 
 ## Assembly 
@@ -128,3 +130,58 @@
   - Check the wiki page to understand the argument it takes
   - It reads `al` register and the same is written by `lodsb`
   - When your raise the interrupt. The handler is dispatch which in this case is the teletype function which reads the register you have setup and simply print onto the screen and move the cursor to the next.
+
+## Bootloader
+- loads basic components into memory
+- puts system in expected state
+- collects information about system 
+- Modern operating system expect bootloader to make a switch to 32-bit protected mode and also collect some information
+- Some of the fuction which are only applicable for 16bit are no more use in the 32 bit
+- So bootloader responsiblity to collect all the information before it start the main kernel 
+
+### Floppy disk
+- ease to use 
+- universal support by all BIOS
+- FAT12 file system one of the simplest file system
+- Simplest way we can use disk is 1st sector = boot sector and rest of operating system start from sector 2
+
+- When we attempted to copy the bootloader to the first sector it wiped out the parameters which are used by the FAT12 which we created in the previous step 
+    ```bash
+    $(FLOPPY_IMAGE): bootloader kernel 
+      $(DD) if=/dev/zero of=$(FLOPPY_IMAGE) bs=$(FLOPPY_SECTOR_SIZE) count=$(FLOPPY_BLOCKS)
+      $(MFORMAT) -i $(FLOPPY_IMAGE) -f $(FLOPPY_SIZE) -v BOOT ::
+      $(DD) if=$(BOOTLOADER_BIN) of=$(FLOPPY_IMAGE) conv=notrunc
+      $(MCOPY) -i $(FLOPPY_IMAGE) $(KERNEL_BIN) ::kernel.bin
+    ```
+- By overriding we have broken the file system
+    ```bash
+    mformat  -i build/floppy_boot.img -f 1440  -v BOOT ::
+    dd if=build/bootloader.bin of=build/floppy_boot.img conv=notrunc
+    1+0 records in
+    1+0 records out
+    512 bytes transferred in 0.000043 secs (11906977 bytes/sec)
+    mcopy -i build/floppy_boot.img build/kernel.bin ::kernel.bin
+    init :: non DOS media
+    Cannot initialize '::'
+    ::kernel.bin: Undefined error: 0
+    make: *** [build/floppy_boot.img] Error 1
+    ```
+- Solution is to add these to our bootloader
+  - Check this [FAT-12](https://wiki.osdev.org/FAT)
+  - You can name the variable anything of your choice, but you have to ensure the actual byte your are writing matching the spec using `db` directive
+- Disk layout
+  - Track/Cylinder
+  - Sector 
+  - Head (each side of platter)
+- To read/write, we need to tell the disk controller
+  - Cyliner number, Head number, Sector number (CHS scheme)
+- Logical Block Addressing schemed:
+  - Instead of triplet of number, we only need one single number to reference a block on the disk. 
+  - Unfortunately the BIOS function we wil use only support CHS addressing
+- LBA to CHS conversion
+  - sector per track/cylinder (on a single side)
+  - heads per cylinder (or just heads)
+  - sector = (LBA % sector per track) + 1  (sector is base 1)
+  - head = (LBA / sector per track) % heads
+  - cylinder = (LBA / sector per track) / heads
+

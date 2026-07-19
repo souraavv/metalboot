@@ -120,7 +120,7 @@ msg_hello:
     db 'Hello world!', ENDL, 0
 
 colors:
-    db 0x0A, 0x0B, 0x0C, 0x0D
+    db 0x0A, 0x0A, 0x0C, 0x0C
 
 color_index:
     db 0

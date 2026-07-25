@@ -26,7 +26,7 @@ FAT_12 := 12
 .PHONY: run all clean always floppy_image
 
 run: floppy_image
-	qemu-system-i386 -fda $(FLOPPY_IMAGE)
+	qemu-system-i386 -drive file=build/floppy_boot.img,if=floppy,format=raw
 
 floppy_image: $(FLOPPY_IMAGE)
 

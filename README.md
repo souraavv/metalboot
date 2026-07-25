@@ -6,7 +6,8 @@
   - [How to reference a memory location in assembly ?](#how-to-reference-a-memory-location-in-assembly-)
 - [Bootloader](#bootloader)
   - [Floppy disk](#floppy-disk)
-
+- [FileSystem](#filesystem)
+- [References](#references)
 
 ## Assembly 
 
@@ -78,10 +79,26 @@
     - Segment i start = Segment i - 1 start + 2 byte
   - `real_address` = `segment# * 16` (4 bit shift left) + `offset`
   - There are multiple ways to name same address in the memory, because of different segment_#
+- As mentioned Physical address = segment * 16 + offset
+  - Ex. `mov al, [0x0020]` the CPU doesn't read from physical address `0x0020`. It first choose the default segment DS, then compute the physical address. 
+    - DS * 16 + offset
+    - 0x1000 * 16 + 0x0020
+    - 0x10000 + 0x0020
+    - 0x10020
+  - So the actual address from where byte is read is 0x10020
+  - Different kinds of instructions have different default segment register. The notation is segment_base:offset
+    - `mov al, [var]` DS:var
+    - `push ax`  SS:SP
+    - `pop bx`   SS:SP (Stack Segment: Stack Pointer)
+    - intruction fetch  CS:IP (Code segment: Instruction Pointer)
+    - `movsb` destination ES:DI
+  - You can override default if you want
+    - `mov al, [0x020]` -> `mov al, [es:0x020]`
 - There are special register to specify the current active segment
   - **CS**: currently running code segment
     - **IP** gives the offset
   - **DS**: Data segment
+    - 
   - **SS**: stack segment
   - **ES**, **FS**, **GS** - extra data segments
 
@@ -185,3 +202,64 @@
   - head = (LBA / sector per track) % heads
   - cylinder = (LBA / sector per track) / heads
 
+## FileSystem
+- Organizing peices of data on a disk 
+- We will understand FAT 12 
+- A FAT disk is organized in to four region
+  - Reserved (Boot loader + additional metadata)
+  - File Allocation Table (FAT)
+    - Look up table to get the next block of data
+  - Root directory
+    - Table of content of disk
+  - Data region
+- How to find the location of root directory (third region) ?
+  - Lets caculate the size of first two : Reserved and FAT 
+  - Mostly reserved in 1 sector
+  - 2nd region: FAT count * Sector per FAT 
+- Root directory size (in number of sectors)?
+  - ceil (Number of directory entry count * size of each entry) / size of each sector in byte
+  - This is what we will read into the memory
+- "The root directory"
+  - Lets now go through these directory entries and see how we can find out the file we are looking for ?
+    - Each entry (Filename, Attr, Creation time, Creation date, Access date, First cluster (high), Modified time, Modified date, First cluster (low), Size)
+    - The low and high 'first cluster' signifies the. Together they for 32 bit number which is useful in FAT32, but in our case we using FAT12, so we need lower 16 bits 
+    - File name is max up to the 11 char long
+      - We need to compare with this
+- So what are these cluster exactly ? 
+  - Just like disk uses blocks called 'sector'
+  - FAT called blocks called as 'cluster'
+  - The conversion is defined in the field in the boot sector named as 'sector per cluster'
+- Since we know where is the first cluster of the file is located, we can already read the first block of file in the memory
+  - The cluster number (first cluster (high + low)) gives us the location in the data region. 
+  - And this cluster number start from 2 (i.e., start index is 2)
+  - So to convert it to the sector number
+    - Size of first 3 region = bootsector + FAT table + root. Let say this as data_region_begin
+    - So formulation is = data_region_begin + (cluster - 2) * sector_per_cluster;
+  - Now that is the first cluster. How to get the next cluster ? This is where FAT will come into the play
+    - This is simple lookup table, where the index of an entry corresponds to the cluster number and the entry indicate the next cluster
+    - The size of each entry depends on the FAT type
+    - FAT 12 each entry is 12 bits
+  - The last cluster ?
+    - FFF
+- What if the file we are trying to find is not in the root directory ? And it may be inside some folder ?
+  1. Split path into components parts (and convert to the FAT file naming scheme)
+    - Foo\bar\hello.txt -> "Foo         ", "Bar        ", "Hello      txt" 
+  2. Read the first directory from the root directory, using same procedure as reading files. Directories have same structure as the root directory, and can be read just like ordinary file
+  3. Search the next component from the path in the directory, and read it
+  4. Repeat until reach the file
+
+- Some BIOS might start with 07C0:0000 instead of 0000:07C0
+  - We can use returnf to alter the CS and IP [RETF](https://pushbx.org/ecm/doc/insref.pdf)
+    - Execute a far return: after popping IP/EIP, it then pops CS, and then increments the stack pointer by the optional argument if present
+
+- ![Boot from disk](./misc/images/boot-from-disk.png)
+
+
+## References
+- [int 13 and BIOS routines](https://www.ctyme.com/intr/int-13.htm)
+  - BIOS provides some routines, which you can call. To call those you have to set the appropriate register. 
+    - We need to specify the function, args (if any), and returns
+    - If any of you current args will get used during the function call, then you should push those value to the stack and at the end you recover those in the reverse order of push by using pop instruction
+- [RETF](https://pushbx.org/ecm/doc/insref.pdf)
+- [FAT-12](https://wiki.osdev.org/FAT)
+- [INT 10H/0x10](https://en.wikipedia.org/wiki/INT_10H)

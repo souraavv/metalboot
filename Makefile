@@ -127,3 +127,4 @@ clean:
 	$(MAKE) -C $(STAGE2_DIR) BUILD_DIR=$(abspath $(BUILD_DIR)) clean 
 	$(MAKE) -C $(KERNEL_DIR) BUILD_DIR=$(abspath $(BUILD_DIR)) clean
 	rm -rf $(BUILD_DIR)/*
+	rm -rf $(BUILD_DIR)

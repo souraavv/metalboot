@@ -1,0 +1,89 @@
+Open Watcom Linker Version 2.0 beta Aug 10 2026 06:22:29 (64-bit)
+Copyright (c) 2002-2026 The Open Watcom Contributors. All Rights Reserved.
+Portions Copyright (c) 1985-2002 Sybase, Inc. All Rights Reserved.
+Created on:       26/08/15 22:26:11
+Executable Image: /Users/sourav/sourav-repo/operating_system/bootloader/build/stage2.bin
+creating a RAW Binary Image executable
+
+
+                        +------------+
+                        |   Groups   |
+                        +------------+
+
+Group                           Address              Size
+=====                           =======              ====
+
+DGROUP                          0000009e             00000014
+
+
+
+                        +--------------+
+                        |   Segments   |
+                        +--------------+
+
+Segment                Class          Group          Address         Size
+=======                =====          =====          =======         ====
+
+_ENTRY                 CODE           AUTO           00000000        00000013
+_TEXT                  CODE           AUTO           00000013        0000008b
+CONST                  DATA           DGROUP         0000009e        00000014
+CONST2                 DATA           DGROUP         000000b2        00000000
+_DATA                  DATA           DGROUP         000000b2        00000000
+
+
+                        +----------------+
+                        |   Memory Map   |
+                        +----------------+
+
+* = unreferenced symbol
++ = symbol only referenced locally
+
+Address        Symbol
+=======        ======
+
+Module: /Users/sourav/sourav-repo/operating_system/bootloader/build/stage2/c/main.obj(/Users/sourav/sourav-repo/operating_system/bootloader/build/stage2/c/main.obj)
+00000013       _cstart_
+Module: /Users/sourav/sourav-repo/operating_system/bootloader/build/stage2/c/stdio.obj(/Users/sourav/sourav-repo/operating_system/bootloader/build/stage2/c/stdio.obj)
+0000002d+      putc_
+00000054       puts_
+Module: /Users/sourav/sourav-repo/operating_system/bootloader/build/stage2/asm/main.obj(/Users/sourav/sourav-repo/operating_system/bootloader/build/stage2/asm/main.obj)
+00000000       entry
+Module: /Users/sourav/sourav-repo/operating_system/bootloader/build/stage2/asm/x86.obj(/Users/sourav/sourav-repo/operating_system/bootloader/build/stage2/asm/x86.obj)
+0000008b       _x86_Video_WriteCharTeletype
+
+
+                        +---------------------+
+                        |   Module Segments   |
+                        +---------------------+
+
+! = 32-bit segment
+c = initialized communal data
+
+Module          Segment               Class           Address         Size
+======          =======               =====           =======         ====
+
+/Users/sourav/sourav-repo/operating_system/bootloader/build/stage2/c/main.obj
+                _TEXT                 CODE           00000013         0000001a
+                CONST                 DATA           0000009e         00000014
+                CONST2                DATA           000000b2         00000000
+                _DATA                 DATA           000000b2         00000000
+/Users/sourav/sourav-repo/operating_system/bootloader/build/stage2/c/stdio.obj
+                _TEXT                 CODE           0000002d         0000005e
+                CONST                 DATA           000000b2         00000000
+                CONST2                DATA           000000b2         00000000
+                _DATA                 DATA           000000b2         00000000
+/Users/sourav/sourav-repo/operating_system/bootloader/build/stage2/asm/main.obj
+                _ENTRY                CODE           00000000         00000013
+/Users/sourav/sourav-repo/operating_system/bootloader/build/stage2/asm/x86.obj
+                _TEXT                 CODE           0000008b         00000013
+Warning! W1014: stack segment not found
+
+
+                        +-----------------------+
+                        |   Linker Statistics   |
+                        +-----------------------+
+
+Stack size:  0200 (512.)
+Memory size:  00b2 (178.)
+Entry point address: 00000000
+Link time: 00:00.16

@@ -1,4 +1,6 @@
-org 0x7C00                    ; directive to tell the use this as base address to address this 
+org 0x7C00                    ; Assembler directive. Tells NASM to assume the
+                              ; code will be loaded at memory address 0x7C00
+                              ; when calculating label addresses
 bits 16                       ; directive to tell that generate 16 bit instructions
 
 ; symbol = new line
@@ -185,8 +187,8 @@ start:
 
 
 .search_kernel:
-    mov si, file_kernel_bin
-    mov cx, 11                      ; length of file_kernel_bin name i.e. 11 char
+    mov si, file_stage2_bin
+    mov cx, 11                      ; length of file_stage2_bin name i.e. 11 char
     push di                         ; save the value of di, which points toth eroot director start 
     ; note that di point to the begin of entry which is essentially the file name which
     ; is fixed 11 byte
@@ -219,7 +221,7 @@ start:
     ; starting entry and read the value 
     mov ax, [di + 26]               ; to get the first cluster, you read 2 byte i.e, 26, 27 into the ax 
                                     ; which is the staring cluster number, now go for the chain
-    mov [kernel_cluster], ax        ; store the value, mov 2 byte (ax) to a word (2byte) location kernel_cluster
+    mov [stage2_cluster], ax        ; store the value, mov 2 byte (ax) to a word (2byte) location stage2_cluster
     
     ; now to read all the cluster we need to iterate through the FAT
     ;;; Load the file allocation table ;;;
@@ -268,7 +270,7 @@ start:
 .load_kernel_loop:
     ; read next cluster
     ; convert from cluster number to the sector
-    mov ax, [kernel_cluster]        ; fetch the saved value of first cluster
+    mov ax, [stage2_cluster]        ; fetch the saved value of first cluster
 
     ; 31 hardcoded for now 
     add ax, 31                      ; first_cluster = (cluster_number - 2) * sectors_per_cluster + start_sector
@@ -281,7 +283,7 @@ start:
     add bx, [bdb_bytes_per_sector] 
 
     ; compute location of next cluster
-    mov ax, [kernel_cluster]        ; fetch the saved value of first cluster (index of first cluster in the fat)
+    mov ax, [stage2_cluster]        ; fetch the saved value of first cluster (index of first cluster in the fat)
     mov cx, 3                       ; 3/2 as 1.5 byte each entry i.e., 12 bit in FAT 12 table
     mul cx                          ; ax = ax * cx (cx = 3)
     mov cx, 2                       ; cx = 2
@@ -316,7 +318,7 @@ start:
     cmp ax, 0x0FF8                  ; end of chain
     jae .read_finish                ; exit the loop, done
 
-    mov [kernel_cluster], ax
+    mov [stage2_cluster], ax
     jmp .load_kernel_loop
 
 .read_finish:
@@ -515,11 +517,11 @@ disk_reset:
     popa 
     ret 
 
-msg_loading:              db 'Loading...', ENDL, 0
-msg_read_failed:        db 'Read from disk failed', ENDL, 0
-msg_kernel_not_found:   db 'KERNEL.BIN file not found', ENDL, 0
-file_kernel_bin:        db 'KERNEL  BIN'
-kernel_cluster:         dw 0 
+msg_loading:            db 'Loading...', ENDL, 0
+msg_read_failed:        db 'Read from disk failed!', ENDL, 0
+msg_kernel_not_found:   db 'STAGE2.BIN file not found!', ENDL, 0
+file_stage2_bin:        db 'STAGE2  BIN'
+stage2_cluster:         dw 0 
 
 KERNEL_LOAD_SEGMENT     equ 0x2000     ; equ means no memory allocate for the constant, kind of #define
 KERNEL_LOAD_OFFSET      equ 0

@@ -1,5 +1,5 @@
-BUILD_DIR ?= build/
-ASM ?= nasm 
+BUILD_DIR  ?= build/
+ASM        ?= nasm 
 KERNEL_BIN ?= $(BUILD_DIR)/kernel.bin
 
 .PHONY: all kernel clean 

@@ -6,11 +6,12 @@
                 "${workspaceFolder}/**"
             ],
             "defines": [
-                "_cdecl"
+                "_cdecl",
+                "far="
             ],
             "compilerPath": "/Users/sourav/Downloads/open-watcom-v2/rel/armo64/wcc",
             "cStandard": "c99",
-            "cppStandard": "c++14",
+            "cppStandard": "c++98",
             "intelliSenseMode": "macos-clang-arm64",
             "compilerArgs": [
                 "-4 -d3 -ms -wx -zl -zq -s"

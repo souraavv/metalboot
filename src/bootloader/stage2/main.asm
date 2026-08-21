@@ -13,7 +13,6 @@ section _ENTRY class=CODE      ; tell nasm to place the stuff we will write
                                ; else. This gaurantees your assembly setup
                                ; routine is the very first thing CPU execute
 
-
 extern _cstart_                ; external symbol which will be the entry point
                                ; in C. The keyword 'extern' tells the NASM
                                ; Do not worry about calculating the memory
@@ -39,6 +38,14 @@ global entry                   ; export the entry symbol so that it is visible
                                ; to find the symbol.
 
 entry:
+    ; ------------------------------------------------------------------------
+    ; Step 1. Clear all the interrupts
+    ; Step 2. Setup the ds and ss (data segment and stack segment at same)
+    ; Step 3. Reset the stack pointer used by ss, and bp used by ds
+    ; Step 4. Trigger the cstart symbol; This method also expect the args
+    ;         so ensure the dl contains the value (stage 1 must ensure that)
+    ; Step 5. Halt
+    ; ------------------------------------------------------------------------
     cli                        ; clear the interrupt flag - disable hardware
                                ; interrupts, this prevent CPU to interrupt
                                ; during critical piece of code 

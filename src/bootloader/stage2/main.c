@@ -2,6 +2,7 @@
 #include "stdio.h"
 
 void _cdecl cstart_(uint16_t bootDrive) {
-    puts("Hello world from C!");
-    for(;;);
+    printf("Boot Drive: %x, OS: %s, Grade: %c\r\n", bootDrive, "NanoByte", 'A');
+    
+    for (;;);
 }

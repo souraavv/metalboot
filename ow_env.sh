@@ -1,4 +1,3 @@
-# ow_env.sh
 WATCOM_ROOT="/Users/sourav/Downloads/open-watcom-v2/rel"
 
 if [[ ! -d "$WATCOM_ROOT" ]]; then
@@ -7,7 +6,6 @@ if [[ ! -d "$WATCOM_ROOT" ]]; then
 fi
 
 export WATCOM="$WATCOM_ROOT"
-# Pointing exactly to the ARM64 macOS binary folder your build generated
 export PATH="$WATCOM/armo64:$WATCOM/bino64:$PATH"
 export INCLUDE="$WATCOM/h"
 export EDDAT="$WATCOM/eddat"

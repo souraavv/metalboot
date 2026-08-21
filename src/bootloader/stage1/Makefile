@@ -1,5 +1,5 @@
-BUILD_DIR ?= build/
-ASM ?= nasm
+BUILD_DIR  ?= build/
+ASM        ?= nasm
 STAGE1_BIN ?= $(BUILD_DIR)/stage1.bin
 
 .PHONY: all stage1 clean

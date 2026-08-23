@@ -25,11 +25,6 @@
     - [2. The Math Proof](#2-the-math-proof)
     - [3. Why is it designed like this? (The Overlap)](#3-why-is-it-designed-like-this-the-overlap)
     - [4. What is "Normalization"?](#4-what-is-normalization)
-  - [Demystifying Segment Overlap and Normalization](#demystifying-segment-overlap-and-normalization-1)
-    - [1. The Physical Address Formula](#1-the-physical-address-formula-1)
-    - [2. The Math Proof](#2-the-math-proof-1)
-    - [3. Why is it designed like this? (The Overlap)](#3-why-is-it-designed-like-this-the-overlap-1)
-    - [4. What is "Normalization"?](#4-what-is-normalization-1)
 - [References](#references)
 - [Extras: Installing Open Watcom v2 (macOS ARM64)](#extras-installing-open-watcom-v2-macos-arm64)
   - [Verifying the 16-bit Toolchain](#verifying-the-16-bit-toolchain)
@@ -430,58 +425,6 @@ If you have a Huge pointer at `0x1001:0x000F` and you increment it (`ptr++`), th
 * Before normalization: `0x1001:0x0010`
 * After normalization:  `0x1002:0x0000`
 
-
-### Demystifying Segment Overlap and Normalization
-
-To understand why `0x1000:0x0010` and `0x1001:0x0000` are the exact same byte in RAM, you have to look at the hardware math the CPU performs every time a memory address is accessed.
-
-#### 1. The Physical Address Formula
-The CPU calculates the actual 20-bit silicon address using this formula:
-`Physical Address = (Segment * 16) + Offset`
-
-*(Note: In hexadecimal, multiplying by 16 is exactly the same as adding a zero to the right side, or shifting left by 4 bits. `0x1000 * 16 = 0x10000`)*
-
-#### 2. The Math Proof
-Let's run the formula on the two logical addresses from the example.
-
-**Pointer A: `0x1000:0x0010`**
-1. Take the segment: `0x1000`
-2. Multiply by 16: `0x10000`
-3. Add the offset: `0x0010`
-4. **Final Physical Address = `0x10010`**
-
-**Pointer B: `0x1001:0x0000`**
-1. Take the segment: `0x1001`
-2. Multiply by 16: `0x10010`
-3. Add the offset: `0x0000`
-4. **Final Physical Address = `0x10010`**
-
-Both pointers mathematically resolve to the exact same byte in your RAM. 
-
-#### 3. Why is it designed like this? (The Overlap)
-A segment doesn't start where the last one ended. **A new segment starts every 16 bytes.** 
-* `Segment 0x0000` starts at physical byte `0`.
-* `Segment 0x0001` starts at physical byte `16`.
-* `Segment 0x0002` starts at physical byte `32`.
-
-This 16-byte gap is called a "paragraph" in x86 terminology. Because your offset can go all the way up to `0xFFFF` (65,535), your offset can reach *deep* into the territory of the segments that come after it. 
-
-There are literally 4,096 different `Segment:Offset` combinations that can point to the exact same physical byte of RAM.
-
-#### 4. What is "Normalization"?
-Because there are thousands of ways to write the same address, it creates a nightmare for the C compiler. If you ask the compiler `if (ptrA == ptrB)`, they might physically point to the same byte, but the compiler will say they are "not equal" because the logical segment/offset numbers are different.
-
-**Normalization** is a mathematical routine the compiler injects to ensure a pointer is always written in its most "canonical" or standardized form. 
-
-The standard rule for a normalized pointer is: **The offset must never exceed 15 (`0x000F`).**
-
-If you have a Huge pointer at `0x1001:0x000F` and you increment it (`ptr++`), the offset becomes 16 (`0x0010`). The compiler intercepts this, shifts the segment up by 1, and resets the offset to 0.
-* Before normalization: `0x1001:0x0010`
-* After normalization:  `0x1002:0x0000`
-
-By constantly normalizing the pointer behind the scenes, the offset never hits the `0xFFFF` limit. It acts like a gear constantly shifting up the segment register, allowing your C array to continuously span the entire 1MB of memory without wrapping around and breaking.
-
-
 ## References
 - [int 13 and BIOS routines](https://www.ctyme.com/intr/int-13.htm)
   - BIOS provides some routines, which you can call. To call those you have to set the appropriate register. 
@@ -496,7 +439,7 @@ By constantly normalizing the pointer behind the scenes, the offset never hits t
 
 ## Extras: Installing Open Watcom v2 (macOS ARM64)
 
-For OS development on Apple Silicon (M-series Macs), relying on pre-compiled x86 Watcom binaries via Rosetta 2 or DOS emulators can introduce latency and compilation bugs. Building natively is required, but the default build configuration attempts to compile 1990s GUI tools that rely on 32-bit legacy DOS emulators, which macOS will instantly block (`Bad CPU type`). 
+For OS development on Apple Silicon (M-series Macs). We have to build the compiler natively. The default build configuration attempts to compile 1990s GUI tools that rely on 32-bit legacy DOS emulators, which macOS will instantly block (`Bad CPU type`). 
 
 To bypass this and build a clean, native CLI-only compiler (`wcc`, `wlink`, `wmake`), follow these steps:
 

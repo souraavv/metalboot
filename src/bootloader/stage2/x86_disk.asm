@@ -11,9 +11,11 @@ section _TEXT class=CODE
 ;   +0  uint8_t driveNumber
 ;
 ; Stack:
+;   
 ;   [bp + 0]  saved BP
 ;   [bp + 2]  return address
 ;   [bp + 4]  resetRequest pointer
+;   -- High address ---
 ;
 ; BIOS INT 13h / AH=00h
 ;
@@ -86,7 +88,7 @@ _x86_Disk_Reset:
 ; 
 ; Stack
 ;   [bp + 0] saved BP 
-;   [bp + 2] return address
+;   [bp + 2] return address (address of the next instruction after this call)
 ;   [bp + 4] diskReadResquest pointer 
 ; 
 ; BIOS INT 13h/ AH = 02h
@@ -111,23 +113,19 @@ _x86_Disk_Read:
     mov bp, sp 
 
     ; Save register modified by this func 
-    push bx 
-    push cx 
-    push dx 
-    push es 
+    push bx        ; Stack grows towards the lower address (bp - 2)
+    push cx        ; bp - 4
+    push dx        ; bp - 6
+    push es        ; bp - 8
 
     ; BX = diskReadRequest
-    mov bx, [bp + 4] 
-
+    mov bx, [bp + 4]
 
     ; ------
     ; Load drive 
     ; ------
 
     mov dl, [bx + 0]
-
-    ; Load sector count 
-    mov al, [bx + 7]
 
     ; ----------------------------
     ; Load cylinder
@@ -167,6 +165,9 @@ _x86_Disk_Read:
     mov ax, [bx + 3]
     mov dh, al 
 
+    ; Load sector count 
+    mov al, [bx + 7]
+
     ; ------------------------------------------------------------------------
     ; Load far buffer pointer
     ;
@@ -178,27 +179,14 @@ _x86_Disk_Read:
     ;   ES:BX = buffer
     ; ------------------------------------------------------------------------
 
-    mov bx, [bx + 8]    ; Bx now points to the buffer offset
-    mov es, [bp + 4]    ; only placeholder (read next para)
-
-    ;
-    ; We cannot use BX here to obtain the segment because BX now
-    ; contains the buffer offset.
-    ;
-    ; Therefore reload the request pointer through another register.
-    ; Remember this note:
-    ; ---------------------
-    ; Far pointer: Segment # is also used in the far pointer, unlike near, where
-    ;               only offset matters
-    ;
-    ;   +8  uint16_t offset
-    ;   +10 uint16_t segment
-    ; 
-    mov si, [bp + 4]    ; si points to the disk read request
-    mov es, [si + 10]   ; at the 10th offset we have the ES 
+    mov es, [bx + 10]   ; ES 
+    mov bx, [bx + 8]    ; BX
 
     ; ------------------------------------------------------------------------
-    ; BIOS disk read
+    ; BIOS disk read - This read the sector in the memory
+    ; It write to the data buffer which is essentially es:bx
+    ; IN the disk.h fille you can see the far* translates to the
+    ; es:bx pair
     ; ------------------------------------------------------------------------
     mov ah, 02h
     int 13h
@@ -221,7 +209,7 @@ _x86_Disk_Read:
     ; restore call frame 
     mov sp, bp 
     pop bp 
-    ret 
+    ret
 
 ;
 ;
@@ -229,18 +217,18 @@ _x86_Disk_Read:
 ; --------------------------
 ;
 ; bool _cdecl x86_Disk_GetDriveParameter(
-;     DriveParamRequest *diskParamRequest,
-;     DriveParamResponse *diskParamResponse
+;     DiskParamRequest *diskParamRequest,
+;     DiskParamResponse *diskParamResponse
 ; );
 ; 
-; DriveParamRequest:
+; DiskParamRequest:
 ;   +0 uint8_t driveNumber
 ;
-; DriveParamResponse:
-;   +0 uint8_t  *driveType
-;   +2 uint16_t *cylinders
-;   +4 uint16_t *sectors
-;   +6 uint16_t *heads
+; DiskParamResponse
+; +0   uint8_t  driveType
+; +1   uint16_t cylinders
+; +3   uint16_t sectors
+; +5   uint16_t heads
 ;
 ; Stack:
 ;
@@ -254,12 +242,14 @@ _x86_Disk_Read:
 ; Input:
 ;   AH = 08h
 ;   DL = drive number
+;   ES:DI = 0000:0000
 ;
 ; Output:
-;   CH = cylinder low 8 bits
-;   CL = sector bits 0-5
-;        cylinder bits 8-9 in bits 6-7
-;   DH = maximum head number
+;   BL = drive type
+;   CH = maximum cylinder bits 0-7
+;   CL = maximum sector bits 0-5
+;        maximum cylinder bits 8-9 in bits 6-7
+;   DH = maximum head
 ;   DL = number of drives
 ;
 ; Return:
@@ -269,12 +259,25 @@ _x86_Disk_Read:
 
 global _x86_Disk_GetDriveParameter
 _x86_Disk_GetDriveParameter:
+    ; Remember the calle convention 
+    ; already added the args to the stack
+    ; And it also added the return pointers
+    ; Now after that its up to us
 
-    ; create call frame
-    push bp 
-    mov bp, sp 
+    ; We start to create the new stack frame by adjusting the 
+    ; basepointer to point to the current stack pointer, and 
+    ; then we will push the register which we can to save
 
-    ; Save registers modified by this function 
+    ; ----------------
+    ; create call stack frame
+    ; ----------------
+
+    push bp          ; save the current BP
+    mov bp, sp       ; And mark the BP to the new base of the stack
+
+    ; ----------------
+    ; Save callee register
+    ; ----------------
     push bx 
     push cx 
     push dx 
@@ -282,50 +285,102 @@ _x86_Disk_GetDriveParameter:
     push di 
     push es 
 
+    ; ----------------
     ; Load request pointer
+    ; ----------------
+
     mov bx, [bp + 4]
 
     ; Dl = request->driveNumber
     mov dl, [bx]
+
+    ; ----------------
+    ; ES:DI = 0000:0000
+    ; ----------------
+    xor di, di
+    xor ax, ax
+    mov es, ax
 
     ; BIOS get driver parameter
     mov ah, 08h
     int 13h
 
     ; BIOS set cf on failure
-    jc . paramterfailure 
+    jc .paramterfailure 
 
-    ; save BIOS result before using registers for C pointers
+    ; At this point:
+    ;
+    ; BL = drive type
+    ; CH = cylinder low 8 bits
+    ; CL = cylinder high 2 bits + sector
+    ; DH = maximum head
+    ; DL = number of drives
 
-    ;
-    ; Cylinder:
-    ;
-    ;   CH     = cylinder bits 0-7
-    ;   CL 7-6 = cylinder bits 8-9
-    ;
-    ; Reconstruct:
-    ;
-    ;   cylinder = CH | ((CL >> 6) << 8)
-    ;
-    mov al, ch 
-    xor ah, ah 
+    ; ----------------
+    ; Load response pointer
+    ; ----------------
 
-    mov si, ax       ; SI is now low bit of cyliner 
+    mov si, [bp + 6]
 
-    mov al, cl 
-    and al, 0C0h     ; 1100000
-    mov cl, 6 
-    shr al, cl 
+    ; driveType
+    mov [si + 0], bl
     
-    xor ah, ah 
-    shl ax, 8
+    ; ----------------
+    ; Reconstruct maximum cylinder
+    ;
+    ; CH = cylinder bits 0-7
+    ; CL bits 6-7 = cylinder bits 8-9
+    ; CL >> 6 keep the top 2 bits only
+    ; And the move those back there place 
+    ; maxCylinder =
+    ;                      CH | ((CL >> 6) << 8)
+    ; or maximumCylinder = CH | ((CL & 0xC0) << 2)
+    ; ----------------
+    xor ax, ax
+    mov al, ch
+    mov di, cx             ; preserve CL and do operation on di 
+    and di, 00C0h          ; keep CL bits 6-7
+    shr di, 6              ; move them to bits 0-1
+    shl di, 8              ; move them to bits 8-9
+    or ax, di 
+    mov [si + 1], ax       ; Save the cylinder
 
-    or ax, si        ; AX = cylinder 
-    push ax          ; save cylinder 
+    ; ----------------
+    ; sectors
+    ;
+    ; CL bits 0-5 = maximum sector number
+    ; ----------------
 
+    mov al, cl     ; hold lower bits 
+    and al, 3Fh    ; 0011 1111  (keep the 0 - 5)
+    xor ah, ah     ; unset the higher bits
+    mov [si + 3], ax
 
+    ; --------
+    ; heads
+    ; DH = maximum head number
+    ; ----------
+    xor ax, ax 
+    mov al, dh 
+    mov [si + 5], ax 
+
+    ; -- Success ---
+    xor ax, ax 
+    mov ax, 1 
+    jmp .parameterdone
 
 .paramterfailure:
+    xor ax, ax 
 
-
-
+.parameterdone:
+    pop es
+    pop di
+    pop si
+    pop dx
+    pop cx
+    pop bx
+    
+    ; restore the stack frame
+    mov sp, bp 
+    pop bp 
+    ret

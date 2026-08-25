@@ -65,6 +65,13 @@ run: floppy_image
 floppy_image: $(FLOPPY_IMAGE)
 
 # 1. Create an empty floppy image
+#    When you run dd - you create a file; when that file is attached
+#    by QEMU using if=floppy its virtual Floppy Disk Controller (FDC) 
+#    looks at the exact byte size. Because the size perfectly matches the 
+#    industry standard for a 3.5" High-Density Floppy, QEMU hardcodes the 
+#    physical geometry to match standard physical hardware: 80 Cylinders, 
+#    2 Heads, and 18 Sectors per track.
+#
 # 2. Write a fat12 filesystem 
 # 3. Copy the stage1.binary to the floppy image 
 # 4. Although now we can mount and copy files, but that just move your 

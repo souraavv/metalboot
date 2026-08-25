@@ -11,6 +11,6 @@ bool _cdecl x86_Disk_Read(
 );
 
 bool _cdecl x86_Disk_GetDriveParameter(
-    DriveParamRequest *diskParamRequest,
-    DriveParamResponse *diskParamResponse
+    DiskParamRequest *diskParamRequest,
+    DiskParamResponse *diskParamResponse
 );

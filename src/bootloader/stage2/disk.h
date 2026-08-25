@@ -2,6 +2,7 @@
 
 #include "stdint.h"
 
+#pragma pack(push, 1)
 typedef struct {
     uint8_t  id;
     uint16_t cylinders;
@@ -24,14 +25,20 @@ typedef struct {
 
 typedef struct {
     uint8_t driveNumber;
-} DriveParamRequest;
+} DiskParamRequest;
 
 typedef struct {
-    uint8_t  *driveType;
-    uint16_t *cylinders;
-    uint16_t *sectors;
-    uint16_t *heads;
-} DriveParamResponse;
+    uint8_t  driveType;
+    uint16_t cylinders;
+    uint16_t sectors;
+    uint16_t heads;
+} DiskParamResponse;
+
+#pragma pack(pop)
+
+/**
+ * Utils
+ */
 
 bool initDisk(Disk *disk, uint8_t driveNumber);
 

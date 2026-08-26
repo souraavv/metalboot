@@ -100,8 +100,9 @@ start:
     ; push offset and segment to the stack and then use retf 
     ; (https://pushbx.org/ecm/doc/insref.pdf)
     ; and then performing a far return. The retf instruction pop the two values
-    ; from the stack to these two register first value to the IP and 
-    ; last value to the CS
+    ; from the stack to these two register:
+    ;  - Top most value to the IP 
+    ;  - Second top most value to the CS
     ; So our desired state is CS = 0 and IP = 0x7C00. 
     ; The both are 16 bit. So that's why 
     ; we will push the address as a word (i.e. 2 byte = 16 bit)
@@ -109,7 +110,8 @@ start:
     push es            ; push an 0
     push word .after   ; push a 2 byte (i.e., a word) .after is resolved by 
                        ; the assember
-    retf 
+    retf               ; pop the two values from the stack to these 
+                       ; two registers (CS and IP)
 
 .after:
     ; read something from the floppy disk 

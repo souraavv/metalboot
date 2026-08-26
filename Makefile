@@ -17,7 +17,7 @@ CC16        := $(WATCOM_BIN)/wcc
 LD16        := $(WATCOM_BIN)/wlink
 
 # --- Compiler Flags ---
-CFLAGS16      = -4 -d3 -ms -wx -zl -zq -s
+CFLAGS16      = -4 -d3 -ms -wx -zl -zq -s -za99
 
 # -- Directories --
 SRC_DIR        := src
@@ -57,7 +57,8 @@ all: floppy_image tools_fat
 # Spawn the QEMU with the image
 # 
 run: floppy_image
-	$(QEMU) -drive file=$(FLOPPY_IMAGE),if=floppy,format=raw
+	$(QEMU) -drive file=$(FLOPPY_IMAGE),if=floppy,format=raw \
+			-display cocoa,zoom-to-fit=on
 
 #
 # Floppy image

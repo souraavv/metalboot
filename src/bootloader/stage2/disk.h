@@ -2,7 +2,9 @@
 
 #include "stdint.h"
 
+// It tells the compiler to strip away all automatic padding bytes
 #pragma pack(push, 1)
+
 typedef struct {
     uint8_t  id;
     uint16_t cylinders;

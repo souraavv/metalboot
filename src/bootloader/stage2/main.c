@@ -13,12 +13,12 @@ void _cdecl cstart_(uint16_t bootDrive) {
         goto end;
     }
 
-    printf("Disk Init Success! CHS: %d Cylinders, %d Heads, %d Sectors\r\n", 
+    printf("Disk Init Success CHS: %d Cylinders, %d Heads, %d Sectors\r\n", 
            disk.cylinders, disk.heads, disk.sectors);
 
     // Read LBA 0 (The Bootloader Sector)
     if (!readDiskSectors(&disk, 0, 1, buffer)) {
-        printf("ERROR: Disk read failed!\r\n");
+        printf("ERROR: Disk read failed\r\n");
         goto end;
     }
 

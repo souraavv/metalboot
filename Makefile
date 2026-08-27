@@ -17,7 +17,7 @@ CC16        := $(WATCOM_BIN)/wcc
 LD16        := $(WATCOM_BIN)/wlink
 
 # --- Compiler Flags ---
-CFLAGS16      = -4 -d3 -ms -wx -zl -zq -s -za99
+CFLAGS16      = -4 -d3 -ms -wx -zl -zq -s -za99 -i=$(abspath $(UTIL_DIR)/headers)
 
 # -- Directories --
 SRC_DIR        := src
@@ -27,6 +27,8 @@ BOOTLOADER_DIR := $(SRC_DIR)/bootloader
 STAGE1_DIR     := $(BOOTLOADER_DIR)/stage1 
 STAGE2_DIR     := $(BOOTLOADER_DIR)/stage2 
 KERNEL_DIR     := $(SRC_DIR)/kernel
+LIB_DIR        := $(SRC_DIR)/lib
+UTIL_DIR       := $(LIB_DIR)/utils
 
 # -- Source code --
 STAGE1_SRC     := $(STAGE1_DIR)/boot.asm
@@ -49,9 +51,9 @@ FLOPPY_SECTOR_SIZE     := 512
 FLOPPY_BLOCKS          := 2880 
 FAT_12                 := 12
 
-.PHONY: run all clean always floppy_image stage1 stage2
+.PHONY: run all clean always floppy_image stage1 stage2 utils tools_fat kernel
 
-all: floppy_image tools_fat 
+all: utils floppy_image tools_fat 
 
 # 
 # Spawn the QEMU with the image
@@ -90,7 +92,7 @@ $(FLOPPY_IMAGE): bootloader kernel
 # ----------
 # Bootloader
 # ----------
-bootloader: stage1 stage2 
+bootloader: utils stage1 stage2
 
 stage1: $(STAGE1_BIN)
 
@@ -113,6 +115,15 @@ tools_fat: $(BUILD_DIR)/tools/fat
 $(BUILD_DIR)/tools/fat: always $(TOOLS_DIR)/fat/fat.c
 	mkdir -p $(BUILD_DIR)/tools
 	$(CC) -g -o $@ $(TOOLS_DIR)/fat/fat.c
+
+# ---------
+# Utils 
+# ---------
+utils: always 
+	$(MAKE) -C $(UTIL_DIR) BUILD_DIR=$(abspath $(BUILD_DIR)) \
+			WATCOM_ROOT=$(abspath $(WATCOM_ROOT)) \
+			WATCOM_BIN=$(abspath $(WATCOM_BIN)) \
+			CFLAGS16="$(CFLAGS16)"
 
 # ----------
 # Kernel
@@ -137,5 +148,6 @@ clean:
 			STAGE1_BIN=$(STAGE1_BIN) clean 
 	$(MAKE) -C $(STAGE2_DIR) BUILD_DIR=$(abspath $(BUILD_DIR)) clean 
 	$(MAKE) -C $(KERNEL_DIR) BUILD_DIR=$(abspath $(BUILD_DIR)) clean
+	$(MAKE) -C $(UTIL_DIR) BUILD_DIR=$(abspath $(BUILD_DIR)) clean
 	rm -rf $(BUILD_DIR)/*
 	rm -rf $(BUILD_DIR)

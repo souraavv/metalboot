@@ -32,10 +32,6 @@ bool validateFatContext(FatContext* context) {
     return context != NULL && context->disk != NULL;
 }
 
-/*
- *  In simple, 
- *  FAT = (Boot record + FAT + Data/Directory)
- */
 bool calculateVolumeGeometry(const BootSector* bpb, VolumeGeometry* geoOut) {
     if (bpb == NULL || geoOut == NULL) {
         return false;
@@ -45,17 +41,9 @@ bool calculateVolumeGeometry(const BootSector* bpb, VolumeGeometry* geoOut) {
         return false;
     }
 
-    // Number of sectors / LBA which are reserved by the bootsector. The boot
-    // record sectors are included in this value
     geoOut->fatLba = bpb->reservedSectors;
-
-    // Total Size of FAT = # of sectors * bytes in each sector
     geoOut->fatSizeBytes = (size_t)bpb->sectorsPerFat * bpb->bytesPerSector;
     
-    // The Logical block address of the root directory is
-    // reserved LBA + # of FAT tables (typically this is 2 for reliablity/
-    // corruption tolerant) * number of sector taken by each of such FAT
-    // tables. This will tell you the root directory LBA
     geoOut->rootDirLba = geoOut->fatLba + (bpb->fatCount * bpb->sectorsPerFat);
     uint32_t rootDirSectors;
 

@@ -60,6 +60,11 @@ typedef struct {
 
 #pragma pack(pop)
 
+// State of a mounted FAT filesystem.
+// 1. The state holds the bootSector, which contains lot of useful
+//    information, some of those are populated by the BIOS
+// 2. A pointer holding the location of root directory
+// 3. Open file stream pointer to the disk image (File object)
 typedef struct {
     FILE* disk;
     BootSector bootSector;
@@ -68,6 +73,9 @@ typedef struct {
     uint32_t rootDirectoryEnd;
 } FatContext;
 
+// Stores the calculated locations and sizes of imp FAT regions on Disk
+// the boot sector gives you the raw parameters, the VolumeGeometry holds
+// those in a format which we can use directly
 typedef struct {
     uint32_t fatLba;
     size_t fatSizeBytes;
@@ -75,6 +83,19 @@ typedef struct {
     uint32_t dataRegionLba;
 } VolumeGeometry;
 
+enum FAT_Attributes
+{
+    FAT_ATTRIBUTE_READ_ONLY         = 0x01,
+    FAT_ATTRIBUTE_HIDDEN            = 0x02,
+    FAT_ATTRIBUTE_SYSTEM            = 0x04,
+    FAT_ATTRIBUTE_VOLUME_ID         = 0x08,
+    FAT_ATTRIBUTE_DIRECTORY         = 0x10,
+    FAT_ATTRIBUTE_ARCHIVE           = 0x20,
+    FAT_ATTRIBUTE_LFN               = FAT_ATTRIBUTE_READ_ONLY 
+                                        | FAT_ATTRIBUTE_HIDDEN 
+                                        | FAT_ATTRIBUTE_SYSTEM 
+                                        | FAT_ATTRIBUTE_VOLUME_ID
+};
 
 bool readBootSector(FatContext* context);
 bool readSectors(FatContext* context, uint32_t lba, 

@@ -42,7 +42,7 @@ bool initDisk(Disk *disk, uint8_t driveNumber) {
 
 static bool lbaToChs(
     Disk *disk,
-    uint16_t lba,
+    uint32_t lba,
     uint16_t *cylinder,
     uint16_t *head,
     uint16_t *sector
@@ -73,7 +73,7 @@ static bool lbaToChs(
 
 bool readDiskSectors(
     Disk *disk,
-    uint16_t lba,
+    uint32_t lba,
     uint8_t count,
     uint8_t far *buffer
 ) {

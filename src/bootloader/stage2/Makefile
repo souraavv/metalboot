@@ -6,7 +6,7 @@ WATCOM_ROOT  ?= /Users/sourav/Downloads/open-watcom-v2/rel
 WATCOM_BIN   ?= $(WATCOM_ROOT)/armo64
 CC16         ?= $(WATCOM_BIN)/wcc
 LD16         ?= $(WATCOM_BIN)/wlink
-CFLAGS16     ?= -4 -d3 -ms -wx -zl -zq -s -i=$(abspath $(UTIL_DIR)/headers)
+CFLAGS16     ?= -4 -d3 -ms -wx -zl -zq -s -za99 -zp1 -i=$(abspath $(UTIL_DIR)/headers)
 
 BUILD_STAGE2 := $(BUILD_DIR)/stage2
 BUILD_C      := $(BUILD_STAGE2)/c

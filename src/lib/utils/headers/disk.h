@@ -46,7 +46,7 @@ bool initDisk(Disk *disk, uint8_t driveNumber);
 
 bool readDiskSectors(
     Disk *disk,
-    uint16_t lba,
+    uint32_t lba,
     uint8_t count,
-    uint8_t far *buffer
+    uint8_t far* buffer
 );

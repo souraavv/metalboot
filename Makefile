@@ -17,7 +17,7 @@ CC16        := $(WATCOM_BIN)/wcc
 LD16        := $(WATCOM_BIN)/wlink
 
 # --- Compiler Flags ---
-CFLAGS16      = -4 -d3 -ms -wx -zl -zq -s -za99 -i=$(abspath $(UTIL_DIR)/headers)
+CFLAGS16 = -4 -d3 -ms -wx -zl -zq -s -za99 -zp1 -i=$(abspath $(UTIL_DIR)/headers)
 
 # -- Directories --
 SRC_DIR        := src
@@ -110,11 +110,11 @@ $(STAGE2_BIN): always
 			WATCOM_BIN=$(abspath $(WATCOM_BIN)) \
 			CFLAGS16="$(CFLAGS16)"
 
-tools_fat: $(BUILD_DIR)/tools/fat
+# tools_fat: $(BUILD_DIR)/tools/fat
 
-$(BUILD_DIR)/tools/fat: always $(TOOLS_DIR)/fat/fat.c
-	mkdir -p $(BUILD_DIR)/tools
-	$(CC) -g -o $@ $(TOOLS_DIR)/fat/fat.c
+# $(BUILD_DIR)/tools/fat: always $(TOOLS_DIR)/fat/fat.c
+# 	mkdir -p $(BUILD_DIR)/tools
+# 	$(CC) -g -o $@ $(TOOLS_DIR)/fat/fat.c
 
 # ---------
 # Utils 

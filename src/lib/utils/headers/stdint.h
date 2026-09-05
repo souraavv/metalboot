@@ -18,3 +18,5 @@ typedef uint8_t bool;
 #define true 1
 
 #define NULL ((void *)0)
+#define nullptr ((void*) 0)
+#define null ((void*) 0)

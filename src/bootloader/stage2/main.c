@@ -3,54 +3,93 @@
 #include "disk.h"
 #include "fat.h"
 
+FatContext fatContext; 
+Disk disk;
+
 void _cdecl cstart_(uint16_t bootDrive) {
     FatFile* fd;
-    FatContext fatContext; 
-    Disk disk;
+    FatFile* rootDir;
+    DirectoryEntry entry;
     uint32_t readBytes;
     uint8_t far buffer[100];
     uint32_t i;
+    char nameBuf[12];
 
-    printf("Boot Drive: %x, OS: Souravsh\r\n", bootDrive);
+    printf("Boot Drive: %x\r\n", bootDrive);
     
-    // init disk 
     if (!initDisk(&disk, (uint8_t)bootDrive)) {
-        printf("ERROR: Disk initialization failed!\r\n");
+        printf("ERROR: Disk init failed\r\n");
         goto end;
     }
 
-    // 1. init
-    printf("Mounting FAT12...\r\n");
     fatContext.disk = &disk;
     if (!fatInitialize(&fatContext)) {
-        printf("ERROR: FAT initialization failed!\r\n");
+        printf("ERROR: FAT init failed\r\n");
         goto end;
     }
 
-    // 2. open the file
-    printf("Opening 'test.txt'...\r\n");
-    fd = open(&fatContext, "test.txt");
-    if (fd == NULL) {
-        printf("ERROR: Could not find 'test.txt' on disk!\r\n");
-        goto end;
-    }
-
-    printf("File opened! Size: %lu bytes\r\n", fd->size);
-    printf("--- FILE CONTENTS ---\r\n");
-
-    // 3. read the file in chunks
-    while ((readBytes = read(&fatContext, fd, sizeof(buffer),
-            buffer)) > 0) {
-
-        for (i = 0; i < readBytes; i++) {
-            putc(buffer[i]);
+    printf("\r\n--- ROOT DIR LISTING ---\r\n");
+    rootDir = &fatContext.rootDirectoryFile.public;
+    
+    while (read(&fatContext, rootDir, sizeof(DirectoryEntry), 
+            (uint8_t far*)&entry) == sizeof(DirectoryEntry)) {
+        
+        if (entry.name[0] == 0x00) break; 
+        if (entry.name[0] == 0xE5 || entry.attributes == FAT_ATTRIBUTE_LFN 
+                || (entry.attributes & FAT_ATTRIBUTE_VOLUME_ID)) {
+            continue;
         }
+
+        for (i = 0; i < 11; i++) nameBuf[i] = entry.name[i];
+        nameBuf[11] = '\0';
+
+        printf(" [%s] %s | %lu bytes\r\n", 
+            (entry.attributes & FAT_ATTRIBUTE_DIRECTORY) ? "DIR " : "FILE",
+            nameBuf, entry.size);
+    }
+    printf("------------------------\r\n");
+
+    printf("\r\n--- DOCS DIR LISTING ---\r\n");
+    fd = open(&fatContext, "docs");
+    if (fd == NULL) {
+        printf("ERROR: Could not find 'docs' dir\r\n");
+    } else {
+        while (read(&fatContext, fd, sizeof(DirectoryEntry), 
+                (uint8_t far*)&entry) == sizeof(DirectoryEntry)) {
+            
+            if (entry.name[0] == 0x00) break; 
+            if (entry.name[0] == 0xE5 || entry.attributes == FAT_ATTRIBUTE_LFN 
+                    || (entry.attributes & FAT_ATTRIBUTE_VOLUME_ID)) {
+                continue;
+            }
+
+            for (i = 0; i < 11; i++) nameBuf[i] = entry.name[i];
+            nameBuf[11] = '\0';
+
+            printf(" [%s] %s | %lu bytes\r\n", 
+                (entry.attributes & FAT_ATTRIBUTE_DIRECTORY) ? "DIR " : "FILE",
+                nameBuf, entry.size);
+        }
+        close(&fatContext, fd);
+    }
+    printf("------------------------\r\n");
+
+    printf("\r\nOpening 'docs/nested/deep.txt'...\r\n");
+    fd = open(&fatContext, "docs/nested/deep.txt");
+    
+    if (fd == NULL) {
+        printf("ERROR: Could not find deep.txt\r\n");
+    } else {
+        while ((readBytes = read(&fatContext, fd, sizeof(buffer), 
+                buffer)) > 0) {
+            for (i = 0; i < readBytes; i++) {
+                putc(buffer[i]);
+            }
+        }
+        printf("\r\n------------------------\r\n");
+        close(&fatContext, fd);
     }
 
-    printf("\r\n--- END OF FILE ---\r\n");
-
-    // 4. cleanup
-    close(&fatContext, fd);
     destroy(&fatContext);
 
 end:

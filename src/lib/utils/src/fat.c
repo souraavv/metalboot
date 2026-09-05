@@ -21,6 +21,8 @@ static DirectoryEntry far* findFile(FatContext* context, const char* name);
 static void formatFatName(const char* input, char* output);
 static bool validateBootSectorPostRead(BootSector* bootSector);
 static int32_t findFreeFileHandle(FatContext* context);
+static bool findFileInDirectory(FatContext* context, FatFile* directory,
+        const char* name11, DirectoryEntry* outEntry);
 
 // --- Validation ---
 bool validateFatContext(FatContext* context) {
@@ -254,54 +256,66 @@ static uint32_t nextCluster(FatContext* context, uint32_t currentCluster) {
     return isEven(currentCluster) ? (entry & 0x0FFF) : (entry >> 4);
 }
 
-DirectoryEntry far* findFile(FatContext* context, const char* name) {
-    uint32_t i;
-    DirectoryEntry far* entry;
+/**
+ * Scan a directory for a matching 11-byte FAT name.
+ *
+ * A directory - whether it's the root or a subfolder - is just a stream
+ * of 32-byte records.
+ *
+ * directory - an already-open FatFile representing the folder to search
+ * name11    - fixed 11-byte FAT name, output of formatFatName
+ * outEntry  - filled with a copy of the entry on success
+ *
+ * Returns false once the directory is exhausted with no match.
+ */
+static bool findFileInDirectory(FatContext* context, FatFile* directory,
+        const char* name11, DirectoryEntry* outEntry) {
+    DirectoryEntry entry;
+    uint32_t bytesRead;
     uint8_t firstByte;
 
-    if (!validateFatContext(context) || name == NULL) {
-        return NULL;
+    if (!validateFatContext(context) || directory == NULL
+            || name11 == NULL || outEntry == NULL) {
+        return false;
     }
 
-    for (i = 0; i < context->bootSector.dirEntryCount; ++i) {
-        entry = &context->rootDirectory[i];
-        firstByte = entry->name[0];
+    while ((bytesRead = read(context, directory, sizeof(DirectoryEntry),
+            (uint8_t far*) &entry)) == sizeof(DirectoryEntry)) {
 
-        // No more directory entres
+        firstByte = entry.name[0];
+
+        // No more active entries beyond this point
         if (firstByte == 0x00) {
-            printf("End of active entries at index %u.\r\n", i);
+            printf("End of active entries in directory\r\n");
             break;
         }
 
-        // Deleted Entry
+        // Deleted entry
         if (firstByte == 0xE5) {
             continue;
         }
 
-        if (entry->attributes == FAT_ATTRIBUTE_LFN) {
+        if (entry.attributes == FAT_ATTRIBUTE_LFN) {
             continue;
         }
 
-        if (entry->attributes & FAT_ATTRIBUTE_VOLUME_ID){
+        if (entry.attributes & FAT_ATTRIBUTE_VOLUME_ID) {
             continue;
         }
 
         /*
-         * FAT filenames are strictly 11-byte fixed-width fields 
-         * padded with spaces.
-         * They are not null terminated C strings ('\0'). 
-         * Using string functions (strcmp, strcpy) is a critical 
-         * vulnerability here; 
-         * they will overrun the 11-byte boundary and 
-         * read adjacent struct fields until a random 0x00 is found. 
+         * FAT filenames are strictly 11-byte fixed-width fields
+         * padded with spaces. They are not null terminated C strings.
          * memcmp bounds the read strictly to 11 bytes.
          */
-        if (memcmp(name, entry->name, 11) == 0) {
+        if (memcmp(name11, entry.name, 11) == 0) {
             printf("Found the match .....\r\n");
-            return entry;
+            *outEntry = entry;
+            return true;
         }
     }
-    return NULL;
+
+    return false;
 }
 
 bool fatInitialize(FatContext* context) {
@@ -360,6 +374,8 @@ bool fatInitialize(FatContext* context) {
     // Info
     context->rootDirectoryFile.info.firstCluster = 0;
     context->rootDirectoryFile.info.isDirectory = true;
+    context->rootDirectoryFile.info.size =
+            context->rootDirectoryFile.public.size;
 
     // Iterator
     context->rootDirectoryFile.cursor.currentCluster =
@@ -398,86 +414,125 @@ int32_t findFreeFileHandle(FatContext* context) {
     return handle;
 }
 
-FatFile* open(FatContext* context, const char* name) {
-    char fatFileName[11];
-    DirectoryEntry far* entry;
+FatFile* open(FatContext* context, const char* path) {
+    char nameBuffer[12];
+    char fatFileName[12];
+    DirectoryEntry entry;
     int32_t freeFileHandle;
     FatFileData* fileData;
     uint32_t lbaOfFirstCluster;
+    FatFile* currentDir;
+    int i;
+    bool isLastToken;
 
-    if (!validateFatContext(context) || name == NULL) {
+    if (!validateFatContext(context) || path == NULL) {
         printf("Corrupted context of invalid file name\r\n");
         return NULL;
     }
 
-    // Step 1. Sanitize file name
-    formatFatName(name, fatFileName);
+    currentDir = &context->rootDirectoryFile.public;
 
-    // Step 2. Locate the file
-    entry = findFile(context, fatFileName);
+    while (*path != '\0') {
+        i = 0;
+        while (*path != '\0' && *path != '/' && i < 11) {
+            nameBuffer[i++] = *path;
+            path++;
+        }
+        nameBuffer[i] = '\0';
+        
+        if (*path == '/') {
+            path++;
+            isLastToken = false;
+        } else {
+            isLastToken = true;
+        }
 
-    if (entry == NULL) {
-        printf("Failed to get the directory for file %s\r\n", fatFileName);
-        return NULL;
+        // Step 1. Sanitize file name
+        formatFatName(nameBuffer, fatFileName);
+        fatFileName[11] = '\0'; 
+
+        // Rewind the directory cursor before searching
+        if (currentDir->handle == ROOT_DIRECTORY_HANDLE) {
+            fileData = &context->rootDirectoryFile;
+            fileData->cursor.position = 0;
+            fileData->cursor.currentCluster = context->geometry.rootDirLba;
+            fileData->cursor.currentSectorInCluster = 0;
+            readDiskSectors(context->disk, context->geometry.rootDirLba, 1, 
+                    (uint8_t far*)fileData->cursor.buffer);
+        } else {
+            fileData = &context->openedFiles[currentDir->handle];
+            fileData->cursor.position = 0;
+            fileData->cursor.currentCluster = fileData->info.firstCluster;
+            fileData->cursor.currentSectorInCluster = 0;
+            lbaOfFirstCluster = clusterToLba(context, 
+                    fileData->info.firstCluster);
+            readDiskSectors(context->disk, lbaOfFirstCluster, 1, 
+                    (uint8_t far*)fileData->cursor.buffer);
+        }
+
+        // Step 2. Locate the file in the directory
+        if (!findFileInDirectory(context, currentDir, fatFileName, &entry)) {
+            printf("Failed to get the directory for file %s\r\n", fatFileName);
+            return NULL;
+        }
+
+        // Step 3. Find a free file handler
+        freeFileHandle = findFreeFileHandle(context);
+        if (freeFileHandle < 0) {
+            printf("No free file handler available\r\n");
+            return NULL;
+        }
+
+        fileData = &context->openedFiles[freeFileHandle];
+
+        // Reset
+        memset(fileData, 0, sizeof(FatFileData));
+
+        // Public info
+        fileData->public.handle = freeFileHandle;
+        fileData->public.isDirectory = 
+                (entry.attributes & FAT_ATTRIBUTE_DIRECTORY) != 0;
+        fileData->public.position = 0;
+        fileData->public.size = entry.size;
+
+        // Stable file info
+        fileData->info.firstCluster = entry.firstClusterLow 
+                | ((uint32_t) entry.firstClusterHigh << 16);
+        fileData->info.size = entry.size;
+        fileData->info.isDirectory = fileData->public.isDirectory;
+
+        // Cursor
+        fileData->cursor.position = 0;
+        fileData->cursor.currentCluster = fileData->info.firstCluster;
+        fileData->cursor.currentSectorInCluster = 0;
+
+        // Empty file
+        if (fileData->info.size > 0 || fileData->public.isDirectory) {
+            if (fileData->info.firstCluster >= 2) {
+                // Read first sector
+                lbaOfFirstCluster = clusterToLba(context, 
+                        fileData->cursor.currentCluster);
+                if (!readDiskSectors(context->disk, lbaOfFirstCluster, 
+                        1, (uint8_t far*) fileData->cursor.buffer)) {
+                    printf("first sector read failed for file %s\r\n", 
+                            fatFileName);
+                    return NULL;
+                }
+            }
+        }
+
+        fileData->opened = true;
+        currentDir = &fileData->public;
+
+        if (isLastToken) {
+            return currentDir;
+        } else if (!currentDir->isDirectory) {
+            printf("Invalid path: %s is not a directory\r\n", fatFileName);
+            return NULL;
+        }
     }
 
-    // Step 3. Find a free file handler
-    freeFileHandle = findFreeFileHandle(context);
-    if (freeFileHandle < 0) {
-        printf("No free file handler available\r\n");
-        return NULL;
-    }
-    
-    fileData = &context->openedFiles[freeFileHandle];
-
-    // Reset
-    memset(fileData, 0, sizeof(FatFileData));
-
-    // Public info 
-    fileData->public.handle = freeFileHandle;
-    fileData->public.isDirectory = 
-            (entry->attributes & FAT_ATTRIBUTE_DIRECTORY) != 0;
-    fileData->public.position = 0;
-    fileData->public.size = entry->size;
-
-    // Stable file info
-    fileData->info.firstCluster = entry->firstClusterLow 
-            | ((uint32_t) entry->firstClusterHigh << 16);
-    fileData->info.size = entry->size; 
-    fileData->info.isDirectory = fileData->public.isDirectory;
-
-    // Cursor 
-    fileData->cursor.position = 0;
-    fileData->cursor.currentCluster = fileData->info.firstCluster;
-    fileData->cursor.currentSectorInCluster = 0;
-
-    // Empty file 
-    if (fileData->info.size == 0) {
-        fileData->opened = true; 
-        return &fileData->public;
-    }
-
-    if (fileData->info.firstCluster < 2) {
-        printf("Invalid cluster number - cant be less than 2\r\n");
-        return NULL;
-    }
-
-    // Read first sector 
-    lbaOfFirstCluster = clusterToLba(context, fileData->cursor.currentCluster);
-    printf("lbaOfFirstCluster: %lu\r\n", lbaOfFirstCluster);
-    if (lbaOfFirstCluster > 0xFFFF) {
-        printf("LBA exceed disk\r\n");
-        return NULL;
-    }
-
-    if (!readDiskSectors(context->disk, lbaOfFirstCluster, 
-            1, (uint8_t far*) fileData->cursor.buffer)) {
-        printf("first sector read failed for file %s\r\n", fatFileName);
-        return NULL;
-    }
-
-    fileData->opened = true; 
-    return &fileData->public;
+    return NULL;
 }
 
 // Byte Array:  [ Byte 0 ] [ Byte 1 ] [ Byte 2 ] | [ Byte 3 ] [ Byte 4 ] 
@@ -508,6 +563,7 @@ uint32_t read(FatContext* context, FatFile* file, uint32_t bytesCount,
     uint32_t bytesToCopy;
     uint32_t nextClus;
     uint32_t lba;
+    bool isRootDirectory;
 
     // Step 1. Validate
     if (!validateFatContext(context) || file == NULL || bytesCount == 0
@@ -517,8 +573,9 @@ uint32_t read(FatContext* context, FatFile* file, uint32_t bytesCount,
 
     // Step 2. Find runtime details of this file
     fileHandle = file->handle;
+    isRootDirectory = (fileHandle == ROOT_DIRECTORY_HANDLE);
 
-    if (fileHandle == ROOT_DIRECTORY_HANDLE) {
+    if (isRootDirectory) {
         fileData = &context->rootDirectoryFile;
     } else {
         if (fileHandle >= MAX_FILE_HANDLES) {
@@ -533,12 +590,14 @@ uint32_t read(FatContext* context, FatFile* file, uint32_t bytesCount,
         return 0;
     }
 
-    if (fileData->cursor.position >= fileData->info.size) {
-        return 0;
+    // Enforce size limits only for standard files, subdirectories bypass this
+    if (!fileData->info.isDirectory) {
+        if (fileData->cursor.position >= fileData->info.size) {
+            return 0;
+        }
+        remaining = fileData->info.size - fileData->cursor.position;
+        bytesCount = min(bytesCount, remaining);
     }
-
-    remaining = fileData->info.size - fileData->cursor.position;
-    bytesCount = min(bytesCount, remaining);
 
     while (bytesCount > 0) {
         uint8_t far* srcPtr;
@@ -568,6 +627,26 @@ uint32_t read(FatContext* context, FatFile* file, uint32_t bytesCount,
         // Did we finish the current sector ?
         // Are we still in the same sector ??
         if (bytesToCopy < left) {
+            continue;
+        }
+
+        if (isRootDirectory) {
+            uint32_t rootDirEndLba;
+
+            rootDirEndLba = context->geometry.rootDirLba
+                    + context->geometry.rootDirSectors;
+
+            fileData->cursor.currentCluster++;
+
+            if (fileData->cursor.currentCluster >= rootDirEndLba) {
+                break;
+            }
+
+            if (!readDiskSectors(context->disk, fileData->cursor.currentCluster,
+                    1, (uint8_t far*) fileData->cursor.buffer)) {
+                printf("Failed to read next root directory sector\r\n");
+                return bytesRead;
+            }
             continue;
         }
 

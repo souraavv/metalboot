@@ -7,6 +7,7 @@ MFORMAT     := mformat
 DD          := dd
 MCOPY       := mcopy
 QEMU        := qemu-system-i386
+MMD         := mmd
 
 # --- Toolchain Configuration ---
 # set the root of watcom
@@ -81,13 +82,23 @@ floppy_image: $(FLOPPY_IMAGE)
 #    image generation to require elivated priviledge.  
 #    A simple way is use mcopy command
 $(FLOPPY_IMAGE): bootloader kernel 
-	$(DD) if=/dev/zero of=$(FLOPPY_IMAGE) bs=$(FLOPPY_SECTOR_SIZE) \
-			count=$(FLOPPY_BLOCKS)
+	$(DD) if=/dev/zero of=$(FLOPPY_IMAGE) bs=$(FLOPPY_SECTOR_SIZE) count=$(FLOPPY_BLOCKS)
 	$(MFORMAT) -i $(FLOPPY_IMAGE) -f $(FLOPPY_SIZE) -v BOOT ::
-	$(DD) if=$(STAGE1_BIN) of=$(FLOPPY_IMAGE) conv=notrunc
+	
+	$(DD) if=$(STAGE1_BIN) of=$(FLOPPY_IMAGE) bs=1 count=3 conv=notrunc
+	$(DD) if=$(STAGE1_BIN) of=$(FLOPPY_IMAGE) bs=1 seek=62 skip=62 conv=notrunc
+	
 	$(MCOPY) -i $(FLOPPY_IMAGE) $(STAGE2_BIN) "::stage2.bin"
 	$(MCOPY) -i $(FLOPPY_IMAGE) $(KERNEL_BIN) "::kernel.bin"
+	
+	echo "Root file" > test.txt
 	$(MCOPY) -i $(FLOPPY_IMAGE) test.txt "::test.txt"
+	
+	$(MMD) -i $(FLOPPY_IMAGE) "::docs"
+	$(MMD) -i $(FLOPPY_IMAGE) "::docs/nested"
+	
+	echo "Hi @souravsh" > deep.txt
+	$(MCOPY) -i $(FLOPPY_IMAGE) deep.txt "::docs/nested/deep.txt"
 
 # ----------
 # Bootloader

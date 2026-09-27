@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="./misc/image.png" alt="Rusty Raft" width="400">
+  <img src="./misc/images/image.png" alt="Metal bool" width="400">
 </p>
 
 - [Assembly](#assembly)

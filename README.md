@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="./misc/image.png" alt="Rusty Raft" width="400">
+</p>
+
 - [Assembly](#assembly)
   - [How a computer startup ?](#how-a-computer-startup-)
   - [How BIOS find the OS ?](#how-bios-find-the-os-)
